@@ -81,18 +81,42 @@
     .nav-item {
       display: block;
       padding: 7px 24px 7px 36px;
-      font-size: 14px;
+      font-size: 13px;
       color: var(--sidebar-text);
       text-decoration: none;
       border-left: 3px solid transparent;
       transition: background 0.15s, color 0.15s, border-color 0.15s;
       cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .nav-item:hover {
       background: var(--sidebar-hover);
       color: #cbd5e1;
     }
+
+    /* ── Folder tree ── */
+    .nav-folder-header {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      cursor: pointer;
+      user-select: none;
+      transition: color 0.15s, background 0.15s;
+    }
+    .nav-folder-header:hover { color: #94a3b8; background: rgba(255,255,255,0.04); }
+    .nav-folder-arrow { font-size: 9px; display: inline-block; transition: transform 0.2s; flex-shrink: 0; line-height: 1; }
+    .nav-folder-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .nav-folder:not(.open) > .nav-folder-children { display: none; }
+    .nav-folder:not(.open) > .nav-folder-header .nav-folder-arrow { transform: rotate(-90deg); }
 
     .nav-item.active {
       color: #fff;
@@ -525,14 +549,20 @@
           console.error(err);
         });
 
-      // ── Build sidebar nav ──
+      // ── Build sidebar nav (tree) ──
       function buildNav() {
         var sections = {};
         documents.forEach(function (doc) {
           if (!sections[doc.section]) {
-            sections[doc.section] = { label: doc.sectionLabel, color: doc.sectionColor, docs: [] };
+            sections[doc.section] = { label: doc.sectionLabel, color: doc.sectionColor, tree: { children: {}, docs: [] } };
           }
-          sections[doc.section].docs.push(doc);
+          var node = sections[doc.section].tree;
+          var crumbs = doc.breadcrumb || [];
+          crumbs.forEach(function (crumb) {
+            if (!node.children[crumb]) node.children[crumb] = { children: {}, docs: [] };
+            node = node.children[crumb];
+          });
+          node.docs.push(doc);
         });
 
         var html = '';
@@ -540,20 +570,41 @@
           var sec = sections[key];
           html += '<div class="nav-section">';
           html += '<div class="nav-section-title" style="color:' + sec.color + '">' + sec.label + '</div>';
-          sec.docs.forEach(function (doc) {
-            var lockIcon = doc.restricted ? '<span class="lock-icon">🔒</span>' : '';
-          html += '<a class="nav-item" data-id="' + doc.id + '" href="#' + doc.id + '">' + doc.title + lockIcon + '</a>';
-          });
+          html += renderNavTree(sec.tree, 0);
           html += '</div>';
         });
         sidebarNav.innerHTML = html;
 
-        // click handlers
-        sidebarNav.querySelectorAll('.nav-item').forEach(function (el) {
-          el.addEventListener('click', function (e) {
-            closeMobileSidebar();
+        sidebarNav.querySelectorAll('.nav-folder-header').forEach(function (el) {
+          el.addEventListener('click', function () {
+            this.closest('.nav-folder').classList.toggle('open');
           });
         });
+        sidebarNav.querySelectorAll('.nav-item').forEach(function (el) {
+          el.addEventListener('click', function () { closeMobileSidebar(); });
+        });
+      }
+
+      function renderNavTree(node, depth) {
+        var html = '';
+        var docIndent = (36 + depth * 12) + 'px';
+        var folderIndent = (20 + depth * 12) + 'px';
+
+        node.docs.forEach(function (doc) {
+          var lock = doc.restricted ? '<span class="lock-icon">&#128274;</span>' : '';
+          html += '<a class="nav-item" style="padding-left:' + docIndent + '" data-id="' + doc.id + '" href="#' + doc.id + '">' + doc.title + lock + '</a>';
+        });
+
+        Object.keys(node.children).forEach(function (name) {
+          var child = node.children[name];
+          html += '<div class="nav-folder open">';
+          html += '<div class="nav-folder-header" style="padding-left:' + folderIndent + '">' +
+            '<span class="nav-folder-arrow">&#9660;</span>' +
+            '<span class="nav-folder-name">' + name + '</span></div>';
+          html += '<div class="nav-folder-children">' + renderNavTree(child, depth + 1) + '</div>';
+          html += '</div>';
+        });
+        return html;
       }
 
       // ── Build lunr index ──
@@ -653,6 +704,13 @@
             var isActive = el.getAttribute('data-id') === id;
             el.classList.toggle('active', isActive);
             el.style.borderLeftColor = isActive ? doc.sectionColor : 'transparent';
+            if (isActive) {
+              var p = el.parentElement;
+              while (p && p !== sidebarNav) {
+                if (p.classList.contains('nav-folder')) p.classList.add('open');
+                p = p.parentElement;
+              }
+            }
           });
           window.scrollTo(0, 0);
           return;
@@ -667,14 +725,17 @@
           hljs.highlightElement(el);
         });
 
-        // Update active nav
+        // Update active nav + open ancestor folders
         sidebarNav.querySelectorAll('.nav-item').forEach(function (el) {
           var isActive = el.getAttribute('data-id') === id;
           el.classList.toggle('active', isActive);
+          el.style.borderLeftColor = isActive ? doc.sectionColor : 'transparent';
           if (isActive) {
-            el.style.borderLeftColor = doc.sectionColor;
-          } else {
-            el.style.borderLeftColor = 'transparent';
+            var p = el.parentElement;
+            while (p && p !== sidebarNav) {
+              if (p.classList.contains('nav-folder')) p.classList.add('open');
+              p = p.parentElement;
+            }
           }
         });
 
