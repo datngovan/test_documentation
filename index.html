@@ -400,6 +400,34 @@
       }
     }
 
+    /* ── Restricted lock screen ── */
+    .restricted-screen {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 420px; text-align: center; padding: 48px 24px;
+    }
+    .restricted-icon { font-size: 72px; margin-bottom: 16px; line-height: 1; }
+    .restricted-screen h2 { font-size: 26px; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
+    .restricted-doc-title {
+      font-size: 15px; font-weight: 600; color: #64748b; margin-bottom: 16px;
+      padding: 4px 14px; background: #f1f5f9; border-radius: 6px; display: inline-block;
+    }
+    .restricted-screen > p { font-size: 14px; color: #64748b; max-width: 400px; margin-bottom: 8px; line-height: 1.6; }
+    .restricted-actions { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; justify-content: center; }
+    .restricted-actions button, .restricted-actions a {
+      padding: 9px 20px; border-radius: 8px; font-size: 14px; font-weight: 500;
+      cursor: pointer; text-decoration: none; transition: opacity 0.15s; border: none;
+    }
+    .restricted-actions button { background: #f1f5f9; color: #475569; }
+    .restricted-actions a { background: #ef4444; color: #fff; }
+    .restricted-actions button:hover, .restricted-actions a:hover { opacity: 0.85; }
+    .nav-item .lock-icon { font-size: 11px; margin-left: 5px; opacity: 0.65; }
+    .restricted-badge {
+      display: inline-block; padding: 1px 7px; font-size: 10px; font-weight: 600;
+      border-radius: 99px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
+      text-transform: uppercase; letter-spacing: 0.3px; margin-left: 4px;
+    }
+    .search-result.restricted-result .search-result-excerpt { color: #dc2626; font-style: italic; }
+
     /* ── Scrollbar ── */
     .sidebar::-webkit-scrollbar { width: 4px; }
     .sidebar::-webkit-scrollbar-track { background: transparent; }
@@ -513,7 +541,8 @@
           html += '<div class="nav-section">';
           html += '<div class="nav-section-title" style="color:' + sec.color + '">' + sec.label + '</div>';
           sec.docs.forEach(function (doc) {
-            html += '<a class="nav-item" data-id="' + doc.id + '" href="#' + doc.id + '">' + doc.title + '</a>';
+            var lockIcon = doc.restricted ? '<span class="lock-icon">🔒</span>' : '';
+          html += '<a class="nav-item" data-id="' + doc.id + '" href="#' + doc.id + '">' + doc.title + lockIcon + '</a>';
           });
           html += '</div>';
         });
@@ -607,6 +636,28 @@
           '<a href="#' + doc.section + '-overview" style="color:' + doc.sectionColor + '">' + doc.sectionLabel + '</a>' +
           '<span class="sep">&rsaquo;</span>' + doc.title;
 
+        // Restricted doc — show lock screen
+        if (doc.restricted) {
+          docContent.innerHTML =
+            '<div class="restricted-screen">' +
+            '<div class="restricted-icon">🔒</div>' +
+            '<h2>Restricted Document</h2>' +
+            '<p class="restricted-doc-title">' + escapeHtml(doc.title) + '</p>' +
+            '<p>This document is classified and requires elevated access permissions to view.</p>' +
+            '<p>Contact your team lead or security administrator to request access.</p>' +
+            '<div class="restricted-actions">' +
+            '<button onclick="history.back()">&#8592; Go Back</button>' +
+            '<a href="mailto:admin@company.com">Request Access</a>' +
+            '</div></div>';
+          sidebarNav.querySelectorAll('.nav-item').forEach(function (el) {
+            var isActive = el.getAttribute('data-id') === id;
+            el.classList.toggle('active', isActive);
+            el.style.borderLeftColor = isActive ? doc.sectionColor : 'transparent';
+          });
+          window.scrollTo(0, 0);
+          return;
+        }
+
         // Render markdown
         var html = marked.parse(doc.content);
         docContent.innerHTML = html;
@@ -697,16 +748,23 @@
         var html = '<div class="search-meta">' + results.length + ' result' + (results.length !== 1 ? 's' : '') + ' for &ldquo;' + escapeHtml(term) + '&rdquo;</div>';
 
         results.forEach(function (doc, idx) {
-          var excerpt = getExcerpt(doc.content, terms, 150);
-          var highlightedExcerpt = highlightTerms(excerpt, terms);
           var highlightedTitle = highlightTerms(doc.title, terms);
+          var restrictedClass = doc.restricted ? ' restricted-result' : '';
+          var restrictedBadge = doc.restricted ? '<span class="restricted-badge">Restricted</span>' : '';
+          var excerptHtml;
+          if (doc.restricted) {
+            excerptHtml = '🔒 Access restricted — contact your administrator to view this document.';
+          } else {
+            excerptHtml = highlightTerms(getExcerpt(doc.content, terms, 150), terms);
+          }
 
-          html += '<div class="search-result" data-idx="' + idx + '" data-id="' + doc.id + '" role="option">' +
+          html += '<div class="search-result' + restrictedClass + '" data-idx="' + idx + '" data-id="' + doc.id + '" role="option">' +
             '<div class="search-result-header">' +
             '<span class="section-badge" style="background:' + doc.sectionColor + '">' + doc.sectionLabel + '</span>' +
             '<span class="search-result-title">' + highlightedTitle + '</span>' +
+            restrictedBadge +
             '</div>' +
-            '<div class="search-result-excerpt">' + highlightedExcerpt + '</div>' +
+            '<div class="search-result-excerpt">' + excerptHtml + '</div>' +
             '</div>';
         });
 

@@ -4,7 +4,16 @@
       "Bash(node:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git remote:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\([{''''id'''':x[''''id''''],''''title'''':x[''''title''''],''''section'''':x[''''section'''']} for x in d[''''documents'''']], indent=2\\)\\)\")",
+      "Bash(python3:*)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/Admin/desktop/github-page/**)",
+      "Bash(done)"
     ]
   }
 }
