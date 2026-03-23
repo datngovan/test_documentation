@@ -871,18 +871,20 @@
         });
 
         // Render mermaid diagrams
-        var mermaidNodes = [];
-        docContent.querySelectorAll('pre code.language-mermaid').forEach(function (el) {
+        docContent.querySelectorAll('pre code.language-mermaid').forEach(function (el, idx) {
           var pre = el.parentElement;
+          var code = el.textContent.trim();
           var div = document.createElement('div');
           div.className = 'mermaid';
-          div.textContent = el.textContent;
           pre.replaceWith(div);
-          mermaidNodes.push(div);
+          mermaid.render('mermaid-' + Date.now() + '-' + idx, code)
+            .then(function (result) {
+              div.innerHTML = result.svg;
+            })
+            .catch(function (err) {
+              div.innerHTML = '<pre style="color:#9B2335;font-size:12px;text-align:left">⚠ Diagram error: ' + err.message + '</pre>';
+            });
         });
-        if (mermaidNodes.length > 0) {
-          mermaid.run({ nodes: mermaidNodes });
-        }
 
         // Update active nav + open ancestor folders
         sidebarNav.querySelectorAll('.nav-item').forEach(function (el) {

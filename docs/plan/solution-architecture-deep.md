@@ -125,7 +125,7 @@ The mobile client is a React Native application targeting iOS 16+ and Android 10
 ##### 1.1.2.1 Navigation Structure
 
 ```mermaid
-graph TD
+flowchart TD
     Root["Root Navigator"] --> AuthStack["Auth Stack"]
     Root --> MainTab["Main Tab Navigator"]
     Root --> Modals["Modal Stack"]
@@ -393,8 +393,8 @@ The database schema is organized into logical namespaces (PostgreSQL schemas):
 ##### 1.5.1.2 Namespace Hierarchy
 
 ```mermaid
-graph TD
-    Cluster["☸️ cluster: prod-us-east-1"] --> KubeSys["kube-system\nKubernetes core"]
+flowchart TD
+    Cluster["cluster: prod-us-east-1"] --> KubeSys["kube-system\nKubernetes core"]
     Cluster --> ArgoCD["argocd\nGitOps controller"]
     Cluster --> Monitor["monitoring\nPrometheus · Grafana · Alertmanager"]
     Cluster --> Logging["logging\nFluentd · Loki"]
@@ -452,25 +452,26 @@ All services instrument with OpenTelemetry SDK, exporting to Jaeger (via OTLP):
 
 - **Trace propagation**: W3C `traceparent` header
 - **Span hierarchy example for a workflow execution**:
-  ```mermaid
-  graph TD
-      Root["POST /api/v2/workflows/:id/execute\nKong gateway · ROOT span"]
 
-      Root --> AuthSpan["AuthService.ValidateToken\ngRPC · ~5ms"]
-      Root --> ExecSpan["WorkflowEngine.Execute\n~450ms total"]
-      Root --> KafkaSpan["Kafka.Produce\nexecution.completed · ~2ms"]
+```mermaid
+flowchart TD
+    Root["POST /api/v2/workflows/:id/execute\nKong gateway — ROOT span"]
 
-      ExecSpan --> ParseSpan["WorkflowEngine.Parse\n~8ms"]
-      ExecSpan --> PlanSpan["WorkflowEngine.Plan\n~12ms"]
-      ExecSpan --> DAGSpan["WorkflowEngine.RunDAG\n~415ms"]
+    Root --> AuthSpan["AuthService.ValidateToken\ngRPC — 5ms"]
+    Root --> ExecSpan["WorkflowEngine.Execute\n450ms total"]
+    Root --> KafkaSpan["Kafka.Produce\nexecution.completed — 2ms"]
 
-      PlanSpan --> VaultSpan["Vault.ResolveSecrets\n~15ms"]
+    ExecSpan --> ParseSpan["WorkflowEngine.Parse\n8ms"]
+    ExecSpan --> PlanSpan["WorkflowEngine.Plan\n12ms"]
+    ExecSpan --> DAGSpan["WorkflowEngine.RunDAG\n415ms"]
 
-      DAGSpan --> HTTPSpan["StepHandler.HTTPRequest\n~320ms"]
-      DAGSpan --> JQSpan["StepHandler.JQTransform\n~3ms"]
+    PlanSpan --> VaultSpan["Vault.ResolveSecrets\n15ms"]
 
-      HTTPSpan --> NetSpan["net/http.Do\nexternal call · ~318ms"]
-  ```
+    DAGSpan --> HTTPSpan["StepHandler.HTTPRequest\n320ms"]
+    DAGSpan --> JQSpan["StepHandler.JQTransform\n3ms"]
+
+    HTTPSpan --> NetSpan["net/http.Do\nexternal — 318ms"]
+```
 
 <details>
 <summary>Appendix A — ADR-001: Why We Chose Rust for the Workflow Engine Core</summary>

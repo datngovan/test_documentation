@@ -40,27 +40,28 @@ The APEI platform is built on a **microservices architecture** deployed on Kuber
 ## System Architecture Diagram
 
 ```mermaid
-graph TD
-    WebApp["🌐 Web App"] & Mobile["📱 Mobile App"] & CLI["💻 CLI Tool"] & ExtAPI["🔌 Third-Party APIs"] --> GW
-
-    subgraph GW["API Gateway · Kong"]
-        RL["Rate Limit"] ~~~ AU["Auth"] ~~~ RT["Routing"] ~~~ TX["Request Transform"]
-    end
+flowchart TD
+    WebApp["Web App"] --> GW["API Gateway\nKong"]
+    Mobile["Mobile App"] --> GW
+    CLI["CLI Tool"] --> GW
+    ExtAPI["Third-Party APIs"] --> GW
 
     GW --> AuthSvc["Auth Service\nGo + PostgreSQL"]
     GW --> Engine["Workflow Engine\nRust + RocksDB"]
     GW --> Orch["Orchestrator\nGo + NATS JetStream"]
 
-    Engine --> Kafka["Event Bus · Apache Kafka\nworkflow.events · task.events · notification.events"]
+    Engine --> Kafka["Event Bus\nApache Kafka"]
     Orch --> Kafka
 
-    Kafka --> AI["AI Inference Service\nPython + vLLM + CUDA"]
+    Kafka --> AI["AI Inference\nPython + vLLM"]
     Kafka --> Notif["Notification Service\nNode.js + BullMQ"]
-    Kafka --> Analytics["Analytics Pipeline\nApache Flink + ClickHouse"]
+    Kafka --> Analytics["Analytics Pipeline\nFlink + ClickHouse"]
 
-    Engine & AuthSvc & Notif --> PG[("PostgreSQL + Citus")]
+    AuthSvc --> PG[("PostgreSQL + Citus")]
+    Engine --> PG
+    Notif --> PG
     Analytics --> ES[("Elasticsearch 8.12")]
-    Engine --> S3[("MinIO · S3")]
+    Engine --> S3[("MinIO / S3")]
 ```
 
 ---
