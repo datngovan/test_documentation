@@ -144,26 +144,41 @@ kubectl -n apei-core exec -it deploy/workflow-engine -- \
 
 ##### 1.2.1.2 Decision Tree
 
-```mermaid
-flowchart TD
-    Start(["🚨 High error rate detected"]) --> Q1{Recent deploy\nwithin 2 hours?}
-
-    Q1 -->|YES| CheckDiff["Check deploy diff\nfor breaking changes"]
-    CheckDiff --> Rollback["Rollback if suspect\nkubectl rollout undo\ndeployment/workflow-engine"]
-
-    Q1 -->|NO| Q2{Errors in specific\norg or workflow?}
-
-    Q2 -->|YES| DowngradeSEV["Downgrade to SEV-3\nNotify CSM"]
-
-    Q2 -->|NO| Q3{Database errors\nin logs?}
-
-    Q3 -->|YES| DBCheck["Check pg_stat_activity\nfor lock contention\nCheck replication lag\nConsider failover"]
-
-    Q3 -->|NO| Q4{Dependency\ntimeout errors?}
-
-    Q4 -->|YES| CircuitBreaker["Identify timed-out service\nVault · Kafka · External HTTP\nApply circuit breaker"]
-
-    Q4 -->|NO| Escalate["Escalate to\nworkflow engine team\nfor deep investigation"]
+```
+  [Alert] High error rate detected
+              │
+    ┌─────────▼──────────┐
+    │  Recent deploy      │
+    │  within 2 hours?    │
+    └────┬──────────┬─────┘
+        YES          NO
+         │             │
+┌────────▼──────┐  ┌───▼──────────────────────┐
+│ Check deploy  │  │  Errors specific to one  │
+│ diff for      │  │   org or workflow?        │
+│ breaking chgs │  └───────┬──────────┬────────┘
+└───────┬───────┘         YES          NO
+        │                  │             │
+┌───────▼────────┐  ┌──────▼──────┐  ┌──▼──────────────────┐
+│ Rollback if    │  │ Downgrade   │  │  Database errors in  │
+│ suspect:       │  │ to SEV-3;   │  │      logs?           │
+│ kubectl rollout│  │ Notify CSM  │  └──────┬──────────┬────┘
+│ undo deploy/   │  └─────────────┘        YES          NO
+│ workflow-engine│                           │             │
+└────────────────┘              ┌────────────▼──┐  ┌───────▼────────────┐
+                                │ Check         │  │ Dependency timeout  │
+                                │ pg_stat_activ.│  │     errors?         │
+                                │ lock contention│ └────────┬──────┬─────┘
+                                │ + repl. lag;  │         YES      NO
+                                │ consider      │          │        │
+                                │ failover      │  ┌───────▼──┐  ┌──▼───────────┐
+                                └───────────────┘  │ Identify │  │ Escalate to  │
+                                                    │ timed-out│  │ engine team  │
+                                                    │ service; │  │ for deep     │
+                                                    │ apply    │  │ investigation│
+                                                    │ circuit  │  └──────────────┘
+                                                    │ breaker  │
+                                                    └──────────┘
 ```
 
 ---

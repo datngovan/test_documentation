@@ -1,7 +1,7 @@
 import json, os
 
 BASE = r"C:\Users\Admin\desktop\github-page\docs"
-OUT  = r"C:\Users\Admin\desktop\github-page\search-index.json"
+OUT  = r"C:\Users\Admin\desktop\github-page\docs-page\search-index.json"
 
 # (id, title, section, sectionLabel, sectionColor, rel_path, restricted, tags, breadcrumb, lang)
 DOCS = [

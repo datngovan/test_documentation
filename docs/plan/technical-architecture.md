@@ -39,29 +39,44 @@ The APEI platform is built on a **microservices architecture** deployed on Kuber
 
 ## System Architecture Diagram
 
-```mermaid
-flowchart TD
-    WebApp["Web App"] --> GW["API Gateway\nKong"]
-    Mobile["Mobile App"] --> GW
-    CLI["CLI Tool"] --> GW
-    ExtAPI["Third-Party APIs"] --> GW
-
-    GW --> AuthSvc["Auth Service\nGo + PostgreSQL"]
-    GW --> Engine["Workflow Engine\nRust + RocksDB"]
-    GW --> Orch["Orchestrator\nGo + NATS JetStream"]
-
-    Engine --> Kafka["Event Bus\nApache Kafka"]
-    Orch --> Kafka
-
-    Kafka --> AI["AI Inference\nPython + vLLM"]
-    Kafka --> Notif["Notification Service\nNode.js + BullMQ"]
-    Kafka --> Analytics["Analytics Pipeline\nFlink + ClickHouse"]
-
-    AuthSvc --> PG[("PostgreSQL + Citus")]
-    Engine --> PG
-    Notif --> PG
-    Analytics --> ES[("Elasticsearch 8.12")]
-    Engine --> S3[("MinIO / S3")]
+```
+┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐
+│  Web App │  │  Mobile  │  │ CLI Tool │  │ Third-Party  │
+│          │  │   App    │  │          │  │    APIs      │
+└────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬───────┘
+     └─────────────┴─────────────┴────────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │      API Gateway        │
+                    │         (Kong)          │
+                    └───┬──────────┬──────────┘
+                        │          │          │
+             ┌──────────┘   ┌──────┘   ┌──────┘
+             │               │           │
+   ┌─────────▼──────┐ ┌──────▼────────┐ ┌────────────────────┐
+   │  Auth Service  │ │Workflow Engine│ │   Orchestrator     │
+   │ Go+PostgreSQL  │ │ Rust+RocksDB  │ │  Go+NATS JetStream │
+   └────────┬───────┘ └──────┬────────┘ └──────────┬─────────┘
+            │                 └────────────┬─────────┘
+            │                              │
+            │               ┌──────────────▼──────────────┐
+            │               │       Event Bus (Kafka)      │
+            │               └──────┬───────────┬───────────┘
+            │                      │             │
+            │               ┌──────┘      ┌──────┘
+            │               │              │
+   ┌────────▼───┐  ┌─────────▼──────┐  ┌───▼──────────────────┐
+   │ PostgreSQL │  │ AI Inference   │  │  Notification Svc    │
+   │  + Citus   │  │  Python+vLLM  │  │   Node.js+BullMQ     │
+   └────────────┘  └────────────────┘  └──────────────────────┘
+   ┌─────────────────────┐  ┌────────────────────────────────┐
+   │  Elasticsearch 8.12 │  │   Analytics Pipeline           │
+   │   (Search Index)    │  │   Flink + ClickHouse           │
+   └─────────────────────┘  └────────────────────────────────┘
+   ┌────────────────┐
+   │  MinIO / S3    │
+   │ Object Storage │
+   └────────────────┘
 ```
 
 ---

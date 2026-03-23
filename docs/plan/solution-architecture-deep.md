@@ -124,36 +124,34 @@ The mobile client is a React Native application targeting iOS 16+ and Android 10
 
 ##### 1.1.2.1 Navigation Structure
 
-```mermaid
-flowchart TD
-    Root["Root Navigator"] --> AuthStack["Auth Stack"]
-    Root --> MainTab["Main Tab Navigator"]
-    Root --> Modals["Modal Stack"]
-
-    AuthStack --> Login["LoginScreen"]
-    AuthStack --> MFA["MFAScreen"]
-    AuthStack --> ForgotPwd["ForgotPasswordScreen"]
-
-    MainTab --> DashTab["Dashboard Tab"]
-    MainTab --> WFTab["Workflows Tab"]
-    MainTab --> SetTab["Settings Tab"]
-
-    DashTab --> Home["HomeScreen"]
-    DashTab --> NotifDetail["NotificationDetailScreen"]
-
-    WFTab --> WFList["WorkflowListScreen"]
-    WFTab --> WFDetail["WorkflowDetailScreen"]
-    WFTab --> RunDetail["RunDetailScreen"]
-    WFDetail --> OvTab["OverviewTab"]
-    WFDetail --> RunsTab["RunsTab"]
-    WFDetail --> SettTab["SettingsTab"]
-
-    SetTab --> Profile["ProfileScreen"]
-    SetTab --> Security["SecurityScreen"]
-    SetTab --> Notifs["NotificationsScreen"]
-
-    Modals --> CreateWF["CreateWorkflowModal"]
-    Modals --> Filter["FilterModal"]
+```
+Root Navigator
+├─ Auth Stack
+│   ├─ LoginScreen
+│   ├─ MFAScreen
+│   └─ ForgotPasswordScreen
+│
+├─ Main Tab Navigator
+│   ├─ Dashboard Tab
+│   │   ├─ HomeScreen
+│   │   └─ NotificationDetailScreen
+│   │
+│   ├─ Workflows Tab
+│   │   ├─ WorkflowListScreen
+│   │   ├─ WorkflowDetailScreen
+│   │   │   ├─ OverviewTab
+│   │   │   ├─ RunsTab
+│   │   │   └─ SettingsTab
+│   │   └─ RunDetailScreen
+│   │
+│   └─ Settings Tab
+│       ├─ ProfileScreen
+│       ├─ SecurityScreen
+│       └─ NotificationsScreen
+│
+└─ Modal Stack
+    ├─ CreateWorkflowModal
+    └─ FilterModal
 ```
 
 ---
@@ -392,30 +390,30 @@ The database schema is organized into logical namespaces (PostgreSQL schemas):
 
 ##### 1.5.1.2 Namespace Hierarchy
 
-```mermaid
-flowchart TD
-    Cluster["cluster: prod-us-east-1"] --> KubeSys["kube-system\nKubernetes core"]
-    Cluster --> ArgoCD["argocd\nGitOps controller"]
-    Cluster --> Monitor["monitoring\nPrometheus · Grafana · Alertmanager"]
-    Cluster --> Logging["logging\nFluentd · Loki"]
-    Cluster --> CertMgr["cert-manager\nTLS automation"]
-    Cluster --> Core["apei-core\nPrimary services"]
-    Cluster --> ML["apei-ml\nMachine learning"]
-    Cluster --> Data["apei-data\nData platform"]
-    Cluster --> Edge["apei-edge\nEdge / CDN"]
-
-    Core --> CoreDeploy["Deployments\napi-gateway · auth-service\nworkflow-engine · orchestrator"]
-    Core --> CoreState["StatefulSets\nkafka ×3 · redis-cluster ×6"]
-    Core --> CoreJobs["Jobs\ndb-migrations"]
-
-    ML --> MLDeploy["Deployments\nai-inference-service"]
-    ML --> MLConfig["ConfigMaps\nmodel-registry · inference-config"]
-
-    Data --> DataState["StatefulSets\nelasticsearch ×3 · clickhouse ×3"]
-    Data --> DataDeploy["Deployments\nflink-jobmanager · analytics-service"]
-    Data --> DataCron["CronJobs\ncache-refresh · data-export"]
-
-    Edge --> EdgeDeploy["Deployments\nedge-cache-invalidator"]
+```
+cluster: prod-us-east-1
+├─ kube-system          (Kubernetes core)
+├─ argocd               (GitOps controller)
+├─ monitoring           (Prometheus · Grafana · Alertmanager)
+├─ logging              (Fluentd · Loki)
+├─ cert-manager         (TLS automation)
+│
+├─ apei-core            (Primary services)
+│   ├─ Deployments:  api-gateway · auth-service · workflow-engine · orchestrator
+│   ├─ StatefulSets: kafka ×3 · redis-cluster ×6
+│   └─ Jobs:         db-migrations
+│
+├─ apei-ml              (Machine learning)
+│   ├─ Deployments:  ai-inference-service
+│   └─ ConfigMaps:   model-registry · inference-config
+│
+├─ apei-data            (Data platform)
+│   ├─ StatefulSets: elasticsearch ×3 · clickhouse ×3
+│   ├─ Deployments:  flink-jobmanager · analytics-service
+│   └─ CronJobs:     cache-refresh · data-export
+│
+└─ apei-edge            (Edge / CDN)
+    └─ Deployments:  edge-cache-invalidator
 ```
 
 ---
@@ -453,24 +451,18 @@ All services instrument with OpenTelemetry SDK, exporting to Jaeger (via OTLP):
 - **Trace propagation**: W3C `traceparent` header
 - **Span hierarchy example for a workflow execution**:
 
-```mermaid
-flowchart TD
-    Root["POST /api/v2/workflows/:id/execute\nKong gateway — ROOT span"]
-
-    Root --> AuthSpan["AuthService.ValidateToken\ngRPC — 5ms"]
-    Root --> ExecSpan["WorkflowEngine.Execute\n450ms total"]
-    Root --> KafkaSpan["Kafka.Produce\nexecution.completed — 2ms"]
-
-    ExecSpan --> ParseSpan["WorkflowEngine.Parse\n8ms"]
-    ExecSpan --> PlanSpan["WorkflowEngine.Plan\n12ms"]
-    ExecSpan --> DAGSpan["WorkflowEngine.RunDAG\n415ms"]
-
-    PlanSpan --> VaultSpan["Vault.ResolveSecrets\n15ms"]
-
-    DAGSpan --> HTTPSpan["StepHandler.HTTPRequest\n320ms"]
-    DAGSpan --> JQSpan["StepHandler.JQTransform\n3ms"]
-
-    HTTPSpan --> NetSpan["net/http.Do\nexternal — 318ms"]
+```
+POST /api/v2/workflows/:id/execute  [Kong gateway — ROOT span]
+├─ AuthService.ValidateToken        [gRPC — 5ms]
+├─ WorkflowEngine.Execute           [450ms total]
+│   ├─ WorkflowEngine.Parse         [8ms]
+│   ├─ WorkflowEngine.Plan          [12ms]
+│   │   └─ Vault.ResolveSecrets     [15ms]
+│   └─ WorkflowEngine.RunDAG        [415ms]
+│       ├─ StepHandler.HTTPRequest  [320ms]
+│       │   └─ net/http.Do (external) [318ms]
+│       └─ StepHandler.JQTransform  [3ms]
+└─ Kafka.Produce (execution.completed) [2ms]
 ```
 
 <details>
