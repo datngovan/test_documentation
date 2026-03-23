@@ -480,6 +480,40 @@
     }
     .search-result.restricted-result .search-result-excerpt { color: #dc2626; font-style: italic; }
 
+    /* ── Language toggle ── */
+    .lang-toggle {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 3px;
+      flex-shrink: 0;
+    }
+
+    .lang-btn {
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+      color: #64748b;
+      letter-spacing: 0.4px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .lang-btn:hover { color: var(--dark-gunmetal); }
+
+    .lang-btn.active {
+      background: var(--midnight-green);
+      color: #fff;
+    }
+
+    /* ── VI font override ── */
+    body.lang-vi { font-family: var(--font-vi); }
+
     /* ── Scrollbar ── */
     .sidebar::-webkit-scrollbar { width: 4px; }
     .sidebar::-webkit-scrollbar-track { background: transparent; }
@@ -517,6 +551,10 @@
           <div id="searchResults"></div>
         </div>
       </div>
+      <div class="lang-toggle" id="langToggle" aria-label="Language">
+        <button class="lang-btn active" data-lang="en">EN</button>
+        <button class="lang-btn" data-lang="vi">VI</button>
+      </div>
     </header>
 
     <!-- Content -->
@@ -538,9 +576,38 @@
       let lunrIndex = null;
       let activeDocId = null;
       let activeFilter = 'all';
+      let activeLang = 'en';
       let highlightedResultIdx = -1;
       let currentResults = [];
       let debounceTimer = null;
+
+      // ── i18n strings ──
+      const i18n = {
+        en: {
+          searchPlaceholder: 'Search documentation...',
+          home: 'Home',
+          restricted: 'Restricted Document',
+          restrictedMsg: 'This document is classified and requires elevated access permissions to view.',
+          restrictedContact: 'Contact your team lead or security administrator to request access.',
+          goBack: '\u2190 Go Back',
+          requestAccess: 'Request Access',
+          noResults: 'No results found for',
+          filterAll: 'All'
+        },
+        vi: {
+          searchPlaceholder: 'T\u00ecm ki\u1ebfm t\u00e0i li\u1ec7u...',
+          home: 'Trang ch\u1ee7',
+          restricted: 'T\u00e0i li\u1ec7u b\u1ecb h\u1ea1n ch\u1ebf',
+          restrictedMsg: 'T\u00e0i li\u1ec7u n\u00e0y \u0111\u01b0\u1ee3c ph\u00e2n lo\u1ea1i v\u00e0 y\u00eau c\u1ea7u quy\u1ec1n truy c\u1eadp n\u00e2ng cao \u0111\u1ec3 xem.',
+          restrictedContact: 'Li\u00ean h\u1ec7 tr\u01b0\u1edfng nh\u00f3m ho\u1eb7c qu\u1ea3n tr\u1ecb vi\u00ean b\u1ea3o m\u1eadt \u0111\u1ec3 y\u00eau c\u1ea7u quy\u1ec1n truy c\u1eadp.',
+          goBack: '\u2190 Quay l\u1ea1i',
+          requestAccess: 'Y\u00eau c\u1ea7u truy c\u1eadp',
+          noResults: 'Kh\u00f4ng t\u00ecm th\u1ea5y k\u1ebft qu\u1ea3 cho',
+          filterAll: 'T\u1ea5t c\u1ea3'
+        }
+      };
+
+      function t(key) { return i18n[activeLang][key] || i18n.en[key]; }
 
       // ── DOM refs ──
       const sidebar = document.getElementById('sidebar');
@@ -553,14 +620,20 @@
       const searchResultsEl = document.getElementById('searchResults');
       const breadcrumb = document.getElementById('breadcrumb');
       const docContent = document.getElementById('docContent');
+      const langToggle = document.getElementById('langToggle');
 
-      // ── Section colors map ──
+      // ── Section colors map (brand palette) ──
       const sectionColors = {
-        align: '#10b981',
-        plan: '#3b82f6',
-        execute: '#f59e0b',
-        improve: '#8b5cf6'
+        align: '#F2C75C',
+        plan: '#1B6B3A',
+        execute: '#9B2335',
+        improve: '#4A1942'
       };
+
+      // ── Filtered docs helper ──
+      function filteredDocs() {
+        return documents.filter(function (d) { return d.lang === activeLang; });
+      }
 
       // ── Init ──
       fetch('search-index.json')
@@ -580,7 +653,7 @@
       // ── Build sidebar nav (tree) ──
       function buildNav() {
         var sections = {};
-        documents.forEach(function (doc) {
+        filteredDocs().forEach(function (doc) {
           if (!sections[doc.section]) {
             sections[doc.section] = { label: doc.sectionLabel, color: doc.sectionColor, tree: { children: {}, docs: [] } };
           }
@@ -643,7 +716,7 @@
           this.field('tags', { boost: 5 });
           this.field('content', { boost: 1 });
 
-          documents.forEach(function (doc) {
+          filteredDocs().forEach(function (doc) {
             this.add({
               id: doc.id,
               title: doc.title,
@@ -657,7 +730,7 @@
       // ── Filter chips ──
       function buildFilterChips() {
         var sections = [
-          { key: 'all', label: 'All', color: '#475569' },
+          { key: 'all', label: t('filterAll'), color: '#475569' },
           { key: 'align', label: 'Align', color: sectionColors.align },
           { key: 'plan', label: 'Plan', color: sectionColors.plan },
           { key: 'execute', label: 'Execute', color: sectionColors.execute },
@@ -699,10 +772,12 @@
       }
 
       function loadDoc(id) {
-        var doc = documents.find(function (d) { return d.id === id; });
+        var langDocs = filteredDocs();
+        var doc = langDocs.find(function (d) { return d.id === id; });
         if (!doc) {
-          doc = documents[0];
-          id = doc.id;
+          doc = langDocs[0];
+          id = doc ? doc.id : (documents[0] && documents[0].id);
+          if (!doc) return;
         }
 
         activeDocId = id;
@@ -711,8 +786,10 @@
         docContent.style.setProperty('--doc-section-color', doc.sectionColor);
 
         // Breadcrumb
-        breadcrumb.innerHTML = '<a href="#' + documents[0].id + '">Home</a><span class="sep">&rsaquo;</span>' +
-          '<a href="#' + doc.section + '-overview" style="color:' + doc.sectionColor + '">' + doc.sectionLabel + '</a>' +
+        var overviewId = doc.section + (activeLang === 'vi' ? '-overview-vi' : '-overview');
+        var homeId = activeLang === 'vi' ? 'align-overview-vi' : 'align-overview';
+        breadcrumb.innerHTML = '<a href="#' + homeId + '">' + t('home') + '</a><span class="sep">&rsaquo;</span>' +
+          '<a href="#' + overviewId + '" style="color:' + doc.sectionColor + '">' + doc.sectionLabel + '</a>' +
           '<span class="sep">&rsaquo;</span>' + doc.title;
 
         // Restricted doc — show lock screen
@@ -720,13 +797,13 @@
           docContent.innerHTML =
             '<div class="restricted-screen">' +
             '<div class="restricted-icon">🔒</div>' +
-            '<h2>Restricted Document</h2>' +
+            '<h2>' + t('restricted') + '</h2>' +
             '<p class="restricted-doc-title">' + escapeHtml(doc.title) + '</p>' +
-            '<p>This document is classified and requires elevated access permissions to view.</p>' +
-            '<p>Contact your team lead or security administrator to request access.</p>' +
+            '<p>' + t('restrictedMsg') + '</p>' +
+            '<p>' + t('restrictedContact') + '</p>' +
             '<div class="restricted-actions">' +
-            '<button onclick="history.back()">&#8592; Go Back</button>' +
-            '<a href="mailto:admin@company.com">Request Access</a>' +
+            '<button onclick="history.back()">' + t('goBack') + '</button>' +
+            '<a href="mailto:admin@company.com">' + t('requestAccess') + '</a>' +
             '</div></div>';
           sidebarNav.querySelectorAll('.nav-item').forEach(function (el) {
             var isActive = el.getAttribute('data-id') === id;
@@ -808,9 +885,9 @@
           }
         }
 
-        // Map to docs
+        // Map to docs (active language only)
         currentResults = results.map(function (r) {
-          return documents.find(function (d) { return d.id === r.ref; });
+          return documents.find(function (d) { return d.id === r.ref && d.lang === activeLang; });
         }).filter(Boolean);
 
         // Filter by section
@@ -828,7 +905,7 @@
         searchDropdown.classList.add('open');
 
         if (results.length === 0) {
-          searchResultsEl.innerHTML = '<div class="search-no-results">No results found for &ldquo;' + escapeHtml(term) + '&rdquo;</div>';
+          searchResultsEl.innerHTML = '<div class="search-no-results">' + t('noResults') + ' &ldquo;' + escapeHtml(term) + '&rdquo;</div>';
           return;
         }
 
@@ -972,6 +1049,55 @@
         if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
           closeSearch();
         }
+      });
+
+      // ── Language switch ──
+      function switchLang(lang) {
+        if (lang === activeLang) return;
+
+        var prevDocId = activeDocId;
+        activeLang = lang;
+
+        // Update body font class
+        document.body.classList.toggle('lang-vi', lang === 'vi');
+
+        // Update toggle button styles
+        langToggle.querySelectorAll('.lang-btn').forEach(function (btn) {
+          btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+        });
+
+        // Update search placeholder
+        searchInput.placeholder = t('searchPlaceholder');
+
+        // Rebuild nav, search index, filter chips for new language
+        activeFilter = 'all';
+        buildNav();
+        buildLunrIndex();
+        buildFilterChips();
+
+        // Try to find the equivalent doc in the new language
+        var equivalentId;
+        if (lang === 'vi') {
+          equivalentId = prevDocId + '-vi';
+        } else {
+          equivalentId = prevDocId ? prevDocId.replace(/-vi$/, '') : null;
+        }
+
+        var langDocs = filteredDocs();
+        var targetDoc = equivalentId && langDocs.find(function (d) { return d.id === equivalentId; });
+        if (!targetDoc) targetDoc = langDocs[0];
+
+        if (targetDoc) {
+          window.location.hash = targetDoc.id;
+        }
+
+        closeSearch();
+      }
+
+      langToggle.querySelectorAll('.lang-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          switchLang(this.getAttribute('data-lang'));
+        });
       });
 
       // ── Mobile sidebar toggle ──
