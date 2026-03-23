@@ -584,6 +584,28 @@ body {
 }
 .search-result.restricted-result .search-result-excerpt { color: #dc2626; font-style: italic; }
 
+/* ── Export button ── */
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1.5px solid var(--gold);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--gold);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.export-btn:hover {
+  background: var(--gold);
+  color: var(--dark-gunmetal);
+}
+
 /* ── Language toggle ── */
 .lang-toggle {
   display: flex;
