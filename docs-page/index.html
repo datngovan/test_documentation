@@ -414,48 +414,60 @@
         var doc = filteredDocs().find(function (d) { return d.id === activeDocId; });
         if (!doc || doc.restricted) return;
 
-        var hljsCss = 'https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css';
         var fontCss = 'https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap';
+        var hljsCssUrl = 'https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css';
 
-        // Fetch the site stylesheet and inline it
-        fetch('style.css')
-          .then(function (r) { return r.text(); })
-          .then(function (css) {
-            // Strip sidebar/topbar/mobile layout — only keep content styles
-            var contentCss = [
-              '*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }',
-              'body { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 14.67px;',
-              '       color: #1D1F2A; background: #fff; line-height: 1.6; padding: 40px; max-width: 860px; margin: 0 auto; }',
-              css.split('/* ── Sidebar ──')[0],  // only take CSS before sidebar section
-            ].join('\n');
+        // Fetch site CSS and hljs CSS in parallel, then inline both
+        Promise.all([
+          fetch('style.css').then(function (r) { return r.text(); }),
+          fetch(hljsCssUrl).then(function (r) { return r.text(); })
+        ]).then(function (results) {
+          var siteCss = results[0];
+          var hljsCss = results[1];
 
-            var breadcrumbHtml = document.getElementById('breadcrumb').innerHTML;
-            var contentHtml = document.getElementById('docContent').innerHTML;
+          // Layout overrides: turn body into a centered single-column document
+          var layoutOverride = [
+            'body {',
+            '  padding: 48px 56px;',
+            '  max-width: 900px;',
+            '  margin: 0 auto;',
+            '  background: #fff;',
+            '}',
+            '.sidebar, .topbar, .sidebar-overlay, .export-btn, .lang-toggle { display: none !important; }',
+            '.main { margin-left: 0 !important; padding-top: 0 !important; }',
+            '.content { padding: 0 !important; max-width: 100% !important; }',
+            '.breadcrumb { font-size: 12px; color: #64748b; margin-bottom: 24px; }',
+            '.breadcrumb a { color: inherit; text-decoration: none; }',
+            '.breadcrumb .sep { margin: 0 6px; }',
+          ].join('\n');
 
-            var html = '<!DOCTYPE html>\n<html lang="' + (doc.lang || 'en') + '">\n<head>\n' +
-              '<meta charset="UTF-8">\n' +
-              '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
-              '<title>' + escapeHtml(doc.title) + ' — APEI Docs</title>\n' +
-              '<link rel="stylesheet" href="' + hljsCss + '">\n' +
-              '<link rel="stylesheet" href="' + fontCss + '">\n' +
-              '<style>\n' + contentCss + '\n' +
-              '.breadcrumb { font-size: 12px; color: #64748b; margin-bottom: 20px; }\n' +
-              '.breadcrumb a { color: inherit; text-decoration: none; }\n' +
-              '.breadcrumb .sep { margin: 0 6px; }\n' +
-              '</style>\n' +
-              '</head>\n<body>\n' +
-              '<div class="breadcrumb">' + breadcrumbHtml + '</div>\n' +
-              '<div class="doc-content">' + contentHtml + '</div>\n' +
-              '</body>\n</html>';
+          var breadcrumbHtml = document.getElementById('breadcrumb').innerHTML;
+          var contentHtml = document.getElementById('docContent').innerHTML;
 
-            var blob = new Blob([html], { type: 'text/html' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = (doc.id || 'document') + '.html';
-            a.click();
-            URL.revokeObjectURL(url);
-          });
+          var html = '<!DOCTYPE html>\n' +
+            '<html lang="' + (doc.lang || 'en') + '">\n' +
+            '<head>\n' +
+            '<meta charset="UTF-8">\n' +
+            '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+            '<title>' + escapeHtml(doc.title) + ' \u2014 APEI Docs</title>\n' +
+            '<link rel="stylesheet" href="' + fontCss + '">\n' +
+            '<style>\n/* highlight.js */\n' + hljsCss + '\n</style>\n' +
+            '<style>\n/* site styles */\n' + siteCss + '\n</style>\n' +
+            '<style>\n/* export layout */\n' + layoutOverride + '\n</style>\n' +
+            '</head>\n' +
+            '<body>\n' +
+            '<div class="breadcrumb">' + breadcrumbHtml + '</div>\n' +
+            '<div class="doc-content">' + contentHtml + '</div>\n' +
+            '</body>\n</html>';
+
+          var blob = new Blob([html], { type: 'text/html' });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = (doc.id || 'document') + '.html';
+          a.click();
+          URL.revokeObjectURL(url);
+        });
       });
 
       // ── Search ──
