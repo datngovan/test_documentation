@@ -108,6 +108,39 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
 
 #### API Usage Examples
 
+**HTML** — Embed a workflow status widget:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Workflow Status</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; background: #f8fafc; }
+    .card { background: #fff; border-radius: 10px; padding: 20px 24px; border: 1px solid #e2e8f0; max-width: 420px; }
+    .status { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; animation: pulse 1.5s infinite; }
+    .label { font-size: 14px; font-weight: 600; color: #1D1F2A; }
+    .meta { font-size: 12px; color: #64748b; margin-top: 4px; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <strong>daily-data-sync</strong>
+    <div class="status">
+      <div class="dot"></div>
+      <div>
+        <div class="label">Running</div>
+        <div class="meta">Started 2 minutes ago &middot; Step 2 of 3</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+```
+
 **Python** — Create and execute a workflow:
 
 ```python
