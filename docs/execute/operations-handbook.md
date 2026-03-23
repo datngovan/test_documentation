@@ -144,31 +144,26 @@ kubectl -n apei-core exec -it deploy/workflow-engine -- \
 
 ##### 1.2.1.2 Decision Tree
 
-```
-High error rate detected
-│
-├─► Recent deploy (< 2 hours)?
-│   ├─► YES → Check deploy diff for breaking changes
-│   │         → If suspect: rollback immediately
-│   │         → kubectl -n apei-core rollout undo deployment/workflow-engine
-│   └─► NO  → Continue diagnosis
-│
-├─► Errors concentrated in specific org/workflow?
-│   ├─► YES → Likely customer data issue, not platform issue
-│   │         → Downgrade to SEV-3, notify CSM
-│   └─► NO  → Platform-wide issue, maintain SEV-2
-│
-├─► Database errors in logs?
-│   ├─► YES → Check pg_stat_activity for lock contention
-│   │         → Check replication lag
-│   │         → Consider failover if primary is unhealthy
-│   └─► NO  → Continue
-│
-└─► Dependency timeout errors?
-    ├─► YES → Check which downstream service is timing out
-    │         → Is it Vault, Kafka, external HTTP?
-    │         → Apply circuit breaker if not already active
-    └─► NO  → Escalate to workflow engine team for deep investigation
+```mermaid
+flowchart TD
+    Start(["🚨 High error rate detected"]) --> Q1{Recent deploy\nwithin 2 hours?}
+
+    Q1 -->|YES| CheckDiff["Check deploy diff\nfor breaking changes"]
+    CheckDiff --> Rollback["Rollback if suspect\nkubectl rollout undo\ndeployment/workflow-engine"]
+
+    Q1 -->|NO| Q2{Errors in specific\norg or workflow?}
+
+    Q2 -->|YES| DowngradeSEV["Downgrade to SEV-3\nNotify CSM"]
+
+    Q2 -->|NO| Q3{Database errors\nin logs?}
+
+    Q3 -->|YES| DBCheck["Check pg_stat_activity\nfor lock contention\nCheck replication lag\nConsider failover"]
+
+    Q3 -->|NO| Q4{Dependency\ntimeout errors?}
+
+    Q4 -->|YES| CircuitBreaker["Identify timed-out service\nVault · Kafka · External HTTP\nApply circuit breaker"]
+
+    Q4 -->|NO| Escalate["Escalate to\nworkflow engine team\nfor deep investigation"]
 ```
 
 ---

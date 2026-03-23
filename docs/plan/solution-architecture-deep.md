@@ -124,33 +124,36 @@ The mobile client is a React Native application targeting iOS 16+ and Android 10
 
 ##### 1.1.2.1 Navigation Structure
 
-```
-Root Navigator (Stack)
-├── Auth Stack
-│   ├── LoginScreen
-│   ├── MFAScreen
-│   └── ForgotPasswordScreen
-├── Main Tab Navigator
-│   ├── Dashboard Tab
-│   │   └── DashboardStack
-│   │       ├── HomeScreen
-│   │       └── NotificationDetailScreen
-│   ├── Workflows Tab
-│   │   └── WorkflowStack
-│   │       ├── WorkflowListScreen
-│   │       ├── WorkflowDetailScreen
-│   │       │   ├── OverviewTab
-│   │       │   ├── RunsTab
-│   │       │   └── SettingsTab
-│   │       └── RunDetailScreen
-│   └── Settings Tab
-│       └── SettingsStack
-│           ├── ProfileScreen
-│           ├── SecurityScreen
-│           └── NotificationsScreen
-└── Modal Stack
-    ├── CreateWorkflowModal
-    └── FilterModal
+```mermaid
+graph TD
+    Root["Root Navigator"] --> AuthStack["Auth Stack"]
+    Root --> MainTab["Main Tab Navigator"]
+    Root --> Modals["Modal Stack"]
+
+    AuthStack --> Login["LoginScreen"]
+    AuthStack --> MFA["MFAScreen"]
+    AuthStack --> ForgotPwd["ForgotPasswordScreen"]
+
+    MainTab --> DashTab["Dashboard Tab"]
+    MainTab --> WFTab["Workflows Tab"]
+    MainTab --> SetTab["Settings Tab"]
+
+    DashTab --> Home["HomeScreen"]
+    DashTab --> NotifDetail["NotificationDetailScreen"]
+
+    WFTab --> WFList["WorkflowListScreen"]
+    WFTab --> WFDetail["WorkflowDetailScreen"]
+    WFTab --> RunDetail["RunDetailScreen"]
+    WFDetail --> OvTab["OverviewTab"]
+    WFDetail --> RunsTab["RunsTab"]
+    WFDetail --> SettTab["SettingsTab"]
+
+    SetTab --> Profile["ProfileScreen"]
+    SetTab --> Security["SecurityScreen"]
+    SetTab --> Notifs["NotificationsScreen"]
+
+    Modals --> CreateWF["CreateWorkflowModal"]
+    Modals --> Filter["FilterModal"]
 ```
 
 ---
@@ -389,26 +392,30 @@ The database schema is organized into logical namespaces (PostgreSQL schemas):
 
 ##### 1.5.1.2 Namespace Hierarchy
 
-```
-cluster: prod-us-east-1
-├── kube-system          ← Kubernetes core components
-├── argocd               ← GitOps controller
-├── monitoring           ← Prometheus, Grafana, Alertmanager
-├── logging              ← Fluentd, Loki
-├── cert-manager         ← TLS certificate automation
-├── apei-core            ← Primary application services
-│   ├── Deployments: api-gateway, auth-service, workflow-engine, orchestrator, notification-service
-│   ├── StatefulSets: kafka (3 brokers), redis-cluster (6 nodes)
-│   └── Jobs: db-migrations (run-to-completion)
-├── apei-ml              ← Machine learning services
-│   ├── Deployments: ai-inference-service
-│   └── ConfigMaps: model-registry, inference-config
-├── apei-data            ← Data platform
-│   ├── StatefulSets: elasticsearch (3 nodes), clickhouse (3 nodes)
-│   ├── Deployments: flink-jobmanager, analytics-service
-│   └── CronJobs: cache-refresh (*/5 * * * *), data-export (0 2 * * *)
-└── apei-edge            ← Edge/CDN-related components
-    └── Deployments: edge-cache-invalidator
+```mermaid
+graph TD
+    Cluster["☸️ cluster: prod-us-east-1"] --> KubeSys["kube-system\nKubernetes core"]
+    Cluster --> ArgoCD["argocd\nGitOps controller"]
+    Cluster --> Monitor["monitoring\nPrometheus · Grafana · Alertmanager"]
+    Cluster --> Logging["logging\nFluentd · Loki"]
+    Cluster --> CertMgr["cert-manager\nTLS automation"]
+    Cluster --> Core["apei-core\nPrimary services"]
+    Cluster --> ML["apei-ml\nMachine learning"]
+    Cluster --> Data["apei-data\nData platform"]
+    Cluster --> Edge["apei-edge\nEdge / CDN"]
+
+    Core --> CoreDeploy["Deployments\napi-gateway · auth-service\nworkflow-engine · orchestrator"]
+    Core --> CoreState["StatefulSets\nkafka ×3 · redis-cluster ×6"]
+    Core --> CoreJobs["Jobs\ndb-migrations"]
+
+    ML --> MLDeploy["Deployments\nai-inference-service"]
+    ML --> MLConfig["ConfigMaps\nmodel-registry · inference-config"]
+
+    Data --> DataState["StatefulSets\nelasticsearch ×3 · clickhouse ×3"]
+    Data --> DataDeploy["Deployments\nflink-jobmanager · analytics-service"]
+    Data --> DataCron["CronJobs\ncache-refresh · data-export"]
+
+    Edge --> EdgeDeploy["Deployments\nedge-cache-invalidator"]
 ```
 
 ---
@@ -445,18 +452,24 @@ All services instrument with OpenTelemetry SDK, exporting to Jaeger (via OTLP):
 
 - **Trace propagation**: W3C `traceparent` header
 - **Span hierarchy example for a workflow execution**:
-  ```
-  [ROOT] POST /api/v2/workflows/:id/execute          (Kong gateway)
-  └── [CHILD] AuthService.ValidateToken              (gRPC, ~5ms)
-  └── [CHILD] WorkflowEngine.Execute                 (~450ms total)
-      ├── [CHILD] WorkflowEngine.Parse               (~8ms)
-      ├── [CHILD] WorkflowEngine.Plan                (~12ms)
-      │   └── [CHILD] Vault.ResolveSecrets           (~15ms)
-      └── [CHILD] WorkflowEngine.RunDAG              (~415ms)
-          ├── [CHILD] StepHandler.HTTPRequest        (~320ms)
-          │   └── [CHILD] net/http.Do                (~318ms, external)
-          └── [CHILD] StepHandler.JQTransform        (~3ms)
-  └── [CHILD] Kafka.Produce (execution.completed)    (~2ms)
+  ```mermaid
+  graph TD
+      Root["POST /api/v2/workflows/:id/execute\nKong gateway · ROOT span"]
+
+      Root --> AuthSpan["AuthService.ValidateToken\ngRPC · ~5ms"]
+      Root --> ExecSpan["WorkflowEngine.Execute\n~450ms total"]
+      Root --> KafkaSpan["Kafka.Produce\nexecution.completed · ~2ms"]
+
+      ExecSpan --> ParseSpan["WorkflowEngine.Parse\n~8ms"]
+      ExecSpan --> PlanSpan["WorkflowEngine.Plan\n~12ms"]
+      ExecSpan --> DAGSpan["WorkflowEngine.RunDAG\n~415ms"]
+
+      PlanSpan --> VaultSpan["Vault.ResolveSecrets\n~15ms"]
+
+      DAGSpan --> HTTPSpan["StepHandler.HTTPRequest\n~320ms"]
+      DAGSpan --> JQSpan["StepHandler.JQTransform\n~3ms"]
+
+      HTTPSpan --> NetSpan["net/http.Do\nexternal call · ~318ms"]
   ```
 
 <details>

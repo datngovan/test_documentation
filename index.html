@@ -480,6 +480,22 @@
     }
     .search-result.restricted-result .search-result-excerpt { color: #dc2626; font-style: italic; }
 
+    /* ── Mermaid diagrams ── */
+    .mermaid {
+      margin: 0 0 24px;
+      text-align: center;
+      overflow-x: auto;
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 20px 16px;
+      border: 1px solid var(--border-color);
+    }
+
+    .mermaid svg {
+      max-width: 100%;
+      height: auto;
+    }
+
     /* ── Language toggle ── */
     .lang-toggle {
       display: flex;
@@ -567,6 +583,28 @@
   <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lunr@2.3.9/lunr.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#004851',
+        primaryTextColor: '#ffffff',
+        primaryBorderColor: '#F2C75C',
+        lineColor: '#64748b',
+        secondaryColor: '#1D1F2A',
+        tertiaryColor: '#f8fafc',
+        fontFamily: "'Tenorite', 'Helvetica Neue', Arial, sans-serif",
+        fontSize: '13px',
+        nodeBorder: '#F2C75C',
+        clusterBkg: '#f1f5f9',
+        clusterBorder: '#cbd5e1',
+        edgeLabelBackground: '#ffffff',
+        titleColor: '#1D1F2A'
+      }
+    });
+  </script>
   <script>
     (function () {
       'use strict';
@@ -825,10 +863,26 @@
         var html = marked.parse(doc.content);
         docContent.innerHTML = html;
 
-        // Syntax highlighting
+        // Syntax highlighting (skip mermaid blocks)
         docContent.querySelectorAll('pre code').forEach(function (el) {
-          hljs.highlightElement(el);
+          if (!el.classList.contains('language-mermaid')) {
+            hljs.highlightElement(el);
+          }
         });
+
+        // Render mermaid diagrams
+        var mermaidNodes = [];
+        docContent.querySelectorAll('pre code.language-mermaid').forEach(function (el) {
+          var pre = el.parentElement;
+          var div = document.createElement('div');
+          div.className = 'mermaid';
+          div.textContent = el.textContent;
+          pre.replaceWith(div);
+          mermaidNodes.push(div);
+        });
+        if (mermaidNodes.length > 0) {
+          mermaid.run({ nodes: mermaidNodes });
+        }
 
         // Update active nav + open ancestor folders
         sidebarNav.querySelectorAll('.nav-item').forEach(function (el) {

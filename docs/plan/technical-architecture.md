@@ -39,54 +39,28 @@ The APEI platform is built on a **microservices architecture** deployed on Kuber
 
 ## System Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           CLIENTS                                       │
-│   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────────────┐   │
-│   │ Web App  │   │ Mobile   │   │ CLI Tool │   │ Third-Party APIs │   │
-│   └────┬─────┘   └────┬─────┘   └────┬─────┘   └────────┬─────────┘   │
-└────────┼──────────────┼──────────────┼──────────────────┼──────────────┘
-         │              │              │                  │
-         ▼              ▼              ▼                  ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     API GATEWAY (Kong)                                   │
-│  ┌──────────┐  ┌──────────┐  ┌───────────┐  ┌────────────────────┐    │
-│  │Rate Limit│  │   Auth   │  │  Routing  │  │ Request Transform  │    │
-│  └──────────┘  └──────────┘  └───────────┘  └────────────────────┘    │
-└────────────────────────────┬────────────────────────────────────────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-┌──────────────────┐ ┌─────────────┐ ┌──────────────────┐
-│   Auth Service   │ │  Workflow   │ │  Orchestrator    │
-│   (Go + PSQL)    │ │  Engine     │ │  (Go + NATS)     │
-│                  │ │  (Rust)     │ │                  │
-└──────────────────┘ └──────┬──────┘ └────────┬─────────┘
-                            │                 │
-                            ▼                 ▼
-              ┌──────────────────────────────────────────┐
-              │          EVENT BUS (Kafka)                │
-              │  ┌────────┐ ┌────────┐ ┌──────────────┐  │
-              │  │workflow│ │ task   │ │notification │  │
-              │  │.events │ │.events │ │.events      │  │
-              │  └────────┘ └────────┘ └──────────────┘  │
-              └──────────────────┬───────────────────────┘
-                                │
-          ┌─────────────────────┼─────────────────────┐
-          ▼                     ▼                     ▼
-┌──────────────────┐  ┌─────────────────┐  ┌──────────────────┐
-│ AI Inference     │  │ Notification    │  │ Analytics        │
-│ Service          │  │ Service         │  │ Pipeline         │
-│ (Python + vLLM)  │  │ (Node.js)       │  │ (Flink +         │
-│                  │  │                 │  │  ClickHouse)     │
-└──────────────────┘  └─────────────────┘  └──────────────────┘
-                                │
-              ┌─────────────────┼─────────────────┐
-              ▼                 ▼                 ▼
-     ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-     │ PostgreSQL   │  │Elasticsearch │  │   MinIO      │
-     │ + Citus      │  │  8.12        │  │ (S3)         │
-     └──────────────┘  └──────────────┘  └──────────────┘
+```mermaid
+graph TD
+    WebApp["🌐 Web App"] & Mobile["📱 Mobile App"] & CLI["💻 CLI Tool"] & ExtAPI["🔌 Third-Party APIs"] --> GW
+
+    subgraph GW["API Gateway · Kong"]
+        RL["Rate Limit"] ~~~ AU["Auth"] ~~~ RT["Routing"] ~~~ TX["Request Transform"]
+    end
+
+    GW --> AuthSvc["Auth Service\nGo + PostgreSQL"]
+    GW --> Engine["Workflow Engine\nRust + RocksDB"]
+    GW --> Orch["Orchestrator\nGo + NATS JetStream"]
+
+    Engine --> Kafka["Event Bus · Apache Kafka\nworkflow.events · task.events · notification.events"]
+    Orch --> Kafka
+
+    Kafka --> AI["AI Inference Service\nPython + vLLM + CUDA"]
+    Kafka --> Notif["Notification Service\nNode.js + BullMQ"]
+    Kafka --> Analytics["Analytics Pipeline\nApache Flink + ClickHouse"]
+
+    Engine & AuthSvc & Notif --> PG[("PostgreSQL + Citus")]
+    Analytics --> ES[("Elasticsearch 8.12")]
+    Engine --> S3[("MinIO · S3")]
 ```
 
 ---
