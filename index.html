@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>APEI Docs — Align Plan Execute Improve</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -381,28 +381,86 @@
 
     .doc-content blockquote p:last-child { margin-bottom: 0; }
 
+    /* ── Code blocks ── */
+    .code-block {
+      position: relative;
+      margin: 0 0 20px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #2d3748;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: #161b22;
+      border-bottom: 1px solid #2d3748;
+      user-select: none;
+    }
+
+    .code-lang {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #7c8fa6;
+      font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    }
+
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #7c8fa6;
+      background: transparent;
+      border: 1px solid #2d3748;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    }
+
+    .copy-btn:hover { color: #e2e8f0; border-color: #4a5568; background: #1e2938; }
+
+    .copy-btn.copied {
+      color: #34d399;
+      border-color: #34d399;
+    }
+
     .doc-content pre {
-      background: #1e293b;
-      border-radius: 8px;
-      padding: 16px;
+      background: #0d1117;
+      margin: 0;
+      padding: 18px 20px;
       overflow-x: auto;
-      margin: 0 0 16px;
     }
 
     .doc-content pre code {
-      color: #e2e8f0;
       font-size: 13px;
-      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      line-height: 1.65;
       background: transparent;
       padding: 0;
+      border-radius: 0;
     }
 
+    .doc-content pre::-webkit-scrollbar { height: 6px; }
+    .doc-content pre::-webkit-scrollbar-track { background: transparent; }
+    .doc-content pre::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 3px; }
+
     .doc-content code {
-      background: #f1f5f9;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 13px;
-      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 12.5px;
+      font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      border: 1px solid #2d3748;
     }
 
     .doc-content strong { font-weight: 600; }
@@ -863,11 +921,46 @@
         var html = marked.parse(doc.content);
         docContent.innerHTML = html;
 
-        // Syntax highlighting (skip mermaid blocks)
+        // Syntax highlighting + code block header (skip mermaid)
         docContent.querySelectorAll('pre code').forEach(function (el) {
-          if (!el.classList.contains('language-mermaid')) {
-            hljs.highlightElement(el);
-          }
+          if (el.classList.contains('language-mermaid')) return;
+
+          hljs.highlightElement(el);
+
+          // Detect language label from class
+          var langClass = Array.from(el.classList).find(function (c) { return c.startsWith('language-'); });
+          var lang = langClass ? langClass.replace('language-', '') : '';
+          var langLabel = lang || 'code';
+
+          // Wrap <pre> in .code-block with header
+          var pre = el.parentElement;
+          var wrapper = document.createElement('div');
+          wrapper.className = 'code-block';
+
+          var header = document.createElement('div');
+          header.className = 'code-header';
+          header.innerHTML =
+            '<span class="code-lang">' + escapeHtml(langLabel) + '</span>' +
+            '<button class="copy-btn" aria-label="Copy code">' +
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
+            'Copy</button>';
+
+          pre.parentNode.insertBefore(wrapper, pre);
+          wrapper.appendChild(header);
+          wrapper.appendChild(pre);
+
+          // Copy button handler
+          header.querySelector('.copy-btn').addEventListener('click', function () {
+            var btn = this;
+            navigator.clipboard.writeText(el.textContent).then(function () {
+              btn.classList.add('copied');
+              btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Copied!';
+              setTimeout(function () {
+                btn.classList.remove('copied');
+                btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy';
+              }, 2000);
+            });
+          });
         });
 
         // Render mermaid diagrams
